@@ -1,6 +1,8 @@
 import os
 import logging
 import bisect
+import signal
+import sys
 
 from common import middleware, message_protocol, fruit_item
 
@@ -17,12 +19,8 @@ TOP_SIZE = int(os.environ["TOP_SIZE"])
 class AggregationFilter:
 
     def __init__(self):
-        self.input_exchange = middleware.MessageMiddlewareExchangeRabbitMQ(
-            MOM_HOST, AGGREGATION_PREFIX, [f"{AGGREGATION_PREFIX}_{ID}"]
-        )
-        self.output_queue = middleware.MessageMiddlewareQueueRabbitMQ(
-            MOM_HOST, OUTPUT_QUEUE
-        )
+        self.input_exchange = middleware.MessageMiddlewareExchangeRabbitMQ(MOM_HOST, AGGREGATION_PREFIX, [f"{AGGREGATION_PREFIX}_{ID}"])
+        self.output_queue = middleware.MessageMiddlewareQueueRabbitMQ(MOM_HOST, OUTPUT_QUEUE)
         self.fruit_top = {}
 
     def _process_data(self, fruit, amount, userId):
@@ -42,8 +40,7 @@ class AggregationFilter:
         fruit_chunk = list(self.fruit_top[userId][-TOP_SIZE:])
         fruit_chunk.reverse()
         fruit_top = list(map(lambda fruit_item: (fruit_item.fruit, fruit_item.amount), fruit_chunk))
-        logging.info(f"ENVIO {fruit_top} de {userId}")
-        logging.info(f"QUEDA {self.fruit_top}")
+
         self.output_queue.send(message_protocol.internal.serialize(fruit_top))
         del self.fruit_top
 
@@ -56,6 +53,11 @@ class AggregationFilter:
             self._process_eof(*fields)
         ack()
 
+    def handle_sigterm(self):
+        self.input_exchange.close()
+        self.output_queue.close()
+        sys.exit(0)
+
     def start(self):
         self.input_exchange.start_consuming(self.process_messsage)
 
@@ -63,6 +65,7 @@ class AggregationFilter:
 def main():
     logging.basicConfig(level=logging.INFO)
     aggregation_filter = AggregationFilter()
+    signal.signal(signal.SIGTERM, lambda signum, frame: aggregation_filter.handle_sigterm())
     aggregation_filter.start()
     return 0
 

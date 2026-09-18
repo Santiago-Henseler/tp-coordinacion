@@ -51,7 +51,9 @@ class Client:
         message_protocol.external.send_msg(
             self.server_socket, message_protocol.external.MsgType.END_OF_RECODS
         )
+        logging.info("End send")
         message_protocol.external.recv_msg(self.server_socket)
+        logging.info("ACK end")
 
     def recv_fruit_top(self, output_file):
         logging.info("Receiving fruit top")

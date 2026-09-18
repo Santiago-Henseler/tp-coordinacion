@@ -1,5 +1,7 @@
 import os
 import logging
+import signal
+import sys
 import threading
 
 from common import middleware, message_protocol, fruit_item
@@ -20,8 +22,8 @@ class SumFilter:
         self.data_output_exchanges = []
         for i in range(AGGREGATION_AMOUNT):
             data_output_exchange = middleware.MessageMiddlewareExchangeRabbitMQ(MOM_HOST, AGGREGATION_PREFIX, [f"{AGGREGATION_PREFIX}_{i}"])
-
             self.data_output_exchanges.append(data_output_exchange)
+
         self.amount_by_user = {}        
 
     def _process_data(self, fruit, amount, userId):
@@ -38,23 +40,26 @@ class SumFilter:
             for data_output_exchange in self.data_output_exchanges:
                 data_output_exchange.send(message_protocol.internal.serialize([final_fruit_item.fruit, final_fruit_item.amount, userId]))
         
-        logging.info(f"Broadcasting EOF message")
         for data_output_exchange in self.data_output_exchanges:
             data_output_exchange.send(message_protocol.internal.serialize([userId]))
 
-        logging.info(f"MANDO EOF {userId}")
         self.amount_by_user[userId] = {}
-
-        for i in self.amount_by_user.keys():
-            logging.info(f"INFO {self.amount_by_user[i]}")
 
     def process_data_messsage(self, message, ack, nack):
         fields = message_protocol.internal.deserialize(message)
         if len(fields) == 3:
             self._process_data(*fields)
         else:
+
             self._process_eof(*fields)
         ack()
+
+    def handle_sigterm(self):
+        self.input_queue.close()
+        for queue in self.data_output_exchanges:
+            queue.close()
+
+        sys.exit(0)
 
     def start(self):
         self.input_queue.start_consuming(self.process_data_messsage)
@@ -62,6 +67,7 @@ class SumFilter:
 def main():
     logging.basicConfig(level=logging.INFO)
     sum_filter = SumFilter()
+    signal.signal(signal.SIGTERM, lambda signum, frame: sum_filter.handle_sigterm())
     sum_filter.start()
     return 0
 
