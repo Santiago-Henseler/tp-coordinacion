@@ -13,7 +13,6 @@ MOM_HOST = os.environ["MOM_HOST"]
 INPUT_QUEUE = os.environ["INPUT_QUEUE"]
 OUTPUT_QUEUE = os.environ["OUTPUT_QUEUE"]
 
-
 def handle_client_request(client_socket, message_handler):
     output_queue = middleware.MessageMiddlewareQueueRabbitMQ(MOM_HOST, OUTPUT_QUEUE)
 
@@ -21,19 +20,18 @@ def handle_client_request(client_socket, message_handler):
         while True:
             message = message_protocol.external.recv_msg(client_socket)
 
+            ip, port = client_socket.getpeername()
+
             if message[0] == message_protocol.external.MsgType.FRUIT_RECORD:
-                serialized_message = message_handler.serialize_data_message(message[1])
+                serialized_message = message_handler.serialize_data_message(message[1], f"{ip}:{port}")
                 output_queue.send(serialized_message)
-                message_protocol.external.send_msg(
-                    client_socket, message_protocol.external.MsgType.ACK
-                )
+                message_protocol.external.send_msg(client_socket, message_protocol.external.MsgType.ACK)
 
             if message[0] == message_protocol.external.MsgType.END_OF_RECODS:
-                serialized_message = message_handler.serialize_eof_message(message[1])
+                logging.info(f"END DE {ip}:{port}")
+                serialized_message = message_handler.serialize_eof_message(f"{ip}:{port}")
                 output_queue.send(serialized_message)
-                message_protocol.external.send_msg(
-                    client_socket, message_protocol.external.MsgType.ACK
-                )
+                message_protocol.external.send_msg(client_socket, message_protocol.external.MsgType.ACK)
                 return
     except socket.error:
         logging.error("The connection with the server was lost")
@@ -50,19 +48,14 @@ def handle_client_response(client_list):
         client_index = 0
         try:
             for [message_handler_instance, client_socket] in client_list:
-                deserialized_message = (
-                    message_handler_instance.deserialize_result_message(message)
-                )
+                deserialized_message = (message_handler_instance.deserialize_result_message(message))
 
                 if not deserialized_message:
                     client_index += 1
                     continue
 
-                message_protocol.external.send_msg(
-                    client_socket,
-                    message_protocol.external.MsgType.FRUIT_TOP,
-                    deserialized_message,
-                )
+                message_protocol.external.send_msg(client_socket,message_protocol.external.MsgType.FRUIT_TOP, deserialized_message)
+
                 message_protocol.external.recv_msg(client_socket)
                 break
             client_list.pop(client_index)
@@ -113,10 +106,7 @@ def main():
                         logging.info("A new client has connected")
                         message_handler_instance = message_handler.MessageHandler()
                         client_list.append([message_handler_instance, client_socket])
-                        processes_pool.apply_async(
-                            handle_client_request,
-                            (client_socket, message_handler_instance),
-                        )
+                        processes_pool.apply_async(handle_client_request, (client_socket, message_handler_instance))
                     except socket.error:
                         if sigterm_received.value == 0:
                             logging.error("The connection with the client was lost")
