@@ -27,8 +27,6 @@ class SumFilter:
         self.amount_by_user = {}        
 
     def _process_data(self, fruit, amount, userId):
-        ##logging.info(f"Process data")
-
         if userId not in self.amount_by_user:
             self.amount_by_user[userId] = {}
 
@@ -50,7 +48,7 @@ class SumFilter:
         if len(fields) == 3:
             self._process_data(*fields)
         else:
-
+            logging.info(f"se recibio {fields}")
             self._process_eof(*fields)
         ack()
 

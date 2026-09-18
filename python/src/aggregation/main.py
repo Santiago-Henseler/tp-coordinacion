@@ -42,7 +42,8 @@ class AggregationFilter:
         fruit_top = list(map(lambda fruit_item: (fruit_item.fruit, fruit_item.amount), fruit_chunk))
 
         self.output_queue.send(message_protocol.internal.serialize(fruit_top))
-        del self.fruit_top
+        
+        self.fruit_top[userId] = []
 
     def process_messsage(self, message, ack, nack):
         logging.info("Process message")
