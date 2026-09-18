@@ -38,8 +38,8 @@ def handle_client_request(client_socket, message_handler):
         logging.error("The connection with the server was lost")
     except Exception as e:
         logging.error(e)
-##    finally:
-##        output_queue.close()
+    finally:
+        output_queue.close()
 
 
 def handle_client_response(client_list):

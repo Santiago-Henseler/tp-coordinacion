@@ -40,7 +40,6 @@ class MessageMiddlewareQueueRabbitMQ(MessageMiddlewareQueue):
     def close(self):
         try:
             if self.channel != None:
-                self.channel.queue_delete(queue=self.queue_name)
                 self.channel.close()
             if self.connection != None:
                 self.connection.close()
