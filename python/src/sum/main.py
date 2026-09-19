@@ -18,22 +18,32 @@ AGGREGATION_PREFIX = os.environ["AGGREGATION_PREFIX"]
 class SumFilter:
     def __init__(self):
         self.input_queue = middleware.MessageMiddlewareQueueRabbitMQ(MOM_HOST, INPUT_QUEUE)
+        self.amount_by_user = {}        
+        self.sum_control = middleware.MessageMiddlewareQueueRabbitMQ(MOM_HOST, INPUT_QUEUE)
+        self.eof = {}
 
         self.data_output_exchanges = []
         for i in range(AGGREGATION_AMOUNT):
             data_output_exchange = middleware.MessageMiddlewareExchangeRabbitMQ(MOM_HOST, AGGREGATION_PREFIX, [f"{AGGREGATION_PREFIX}_{i}"])
             self.data_output_exchanges.append(data_output_exchange)
 
-        self.amount_by_user = {}        
 
     def _process_data(self, fruit, amount, userId):
         if userId not in self.amount_by_user:
             self.amount_by_user[userId] = {}
-
+        
         self.amount_by_user[userId][fruit] = self.amount_by_user[userId].get(fruit, fruit_item.FruitItem(fruit, 0)) + fruit_item.FruitItem(fruit, int(amount))
+        
 
     def _process_eof(self, userId):
-        logging.info(f"Broadcasting data messages")
+        if userId in self.eof:
+            if self.eof[userId] != SUM_AMOUNT-1:
+                self.sum_control.send(message_protocol.internal.serialize([userId]))
+                self.eof[userId] += 1
+            return
+        
+        self.eof[userId] = 1
+            
         for final_fruit_item in self.amount_by_user[userId].values():
             for data_output_exchange in self.data_output_exchanges:
                 data_output_exchange.send(message_protocol.internal.serialize([final_fruit_item.fruit, final_fruit_item.amount, userId]))
@@ -43,13 +53,16 @@ class SumFilter:
 
         self.amount_by_user[userId] = {}
 
+        for i in range(SUM_AMOUNT-1):
+            self.sum_control.send(message_protocol.internal.serialize([userId]))
+
     def process_data_messsage(self, message, ack, nack):
         fields = message_protocol.internal.deserialize(message)
         if len(fields) == 3:
             self._process_data(*fields)
         else:
-            logging.info(f"se recibio {fields}")
             self._process_eof(*fields)
+
         ack()
 
     def handle_sigterm(self):

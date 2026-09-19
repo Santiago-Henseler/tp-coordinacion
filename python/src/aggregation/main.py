@@ -22,6 +22,7 @@ class AggregationFilter:
         self.input_exchange = middleware.MessageMiddlewareExchangeRabbitMQ(MOM_HOST, AGGREGATION_PREFIX, [f"{AGGREGATION_PREFIX}_{ID}"])
         self.output_queue = middleware.MessageMiddlewareQueueRabbitMQ(MOM_HOST, OUTPUT_QUEUE)
         self.fruit_top = {}
+        self.eof = {}
 
     def _process_data(self, fruit, amount, userId):
         logging.info("Processing data message")
@@ -31,19 +32,31 @@ class AggregationFilter:
 
         for i in range(len(self.fruit_top[userId])):
             if self.fruit_top[userId][i].fruit == fruit:
-                self.fruit_top[userId][i] = self.fruit_top[userId][i] + fruit_item.FruitItem(fruit, amount)
+                current = self.fruit_top[userId].pop(i)
+                current = current + fruit_item.FruitItem(fruit, amount)
+                bisect.insort(self.fruit_top[userId], current)
                 return
+            
         bisect.insort(self.fruit_top[userId], fruit_item.FruitItem(fruit, amount))
 
     def _process_eof(self, userId):
         logging.info("Received EOF")
-        fruit_chunk = list(self.fruit_top[userId][-TOP_SIZE:])
-        fruit_chunk.reverse()
-        fruit_top = list(map(lambda fruit_item: (fruit_item.fruit, fruit_item.amount), fruit_chunk))
 
-        self.output_queue.send(message_protocol.internal.serialize(fruit_top))
-        
-        self.fruit_top[userId] = []
+        if userId not in self.eof:
+            self.eof[userId] = 1
+        else:
+            self.eof[userId] += 1
+
+        if self.eof[userId] == SUM_AMOUNT:
+            fruit_chunk = list(self.fruit_top[userId][-TOP_SIZE:])
+            fruit_chunk.reverse()
+            fruit_top = list(map(lambda fruit_item: (fruit_item.fruit, fruit_item.amount), fruit_chunk))
+
+            fruit_top.append(userId)
+
+            self.output_queue.send(message_protocol.internal.serialize(fruit_top))
+            
+            self.fruit_top[userId] = []
 
     def process_messsage(self, message, ack, nack):
         logging.info("Process message")

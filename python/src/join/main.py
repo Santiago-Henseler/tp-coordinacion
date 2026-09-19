@@ -26,9 +26,10 @@ class JoinFilter:
         logging.info("Received top")
         fruit_top = message_protocol.internal.deserialize(message)
 
-        logging.info(f"CLIENTE {fruit_top}")
+        userId = fruit_top.pop()
 
         self.output_queue.send(message_protocol.internal.serialize(fruit_top))
+        
         ack()
 
     def handle_sigterm(self):
