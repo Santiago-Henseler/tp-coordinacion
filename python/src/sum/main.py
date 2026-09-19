@@ -2,7 +2,6 @@ import os
 import logging
 import signal
 import sys
-import threading
 
 from common import middleware, message_protocol, fruit_item
 
@@ -43,13 +42,15 @@ class SumFilter:
             return
         
         self.eof[userId] = 1
-            
-        for final_fruit_item in self.amount_by_user[userId].values():
-            for data_output_exchange in self.data_output_exchanges:
-                data_output_exchange.send(message_protocol.internal.serialize([final_fruit_item.fruit, final_fruit_item.amount, userId]))
+
+        node =  int(userId.replace("-", ""), 16) % AGGREGATION_AMOUNT    
+
+        logging.info(f"SE ENVIA {userId} a {node}")
         
-        for data_output_exchange in self.data_output_exchanges:
-            data_output_exchange.send(message_protocol.internal.serialize([userId]))
+        for final_fruit_item in self.amount_by_user[userId].values():
+            self.data_output_exchanges[node].send(message_protocol.internal.serialize([final_fruit_item.fruit, final_fruit_item.amount, userId]))
+        
+        self.data_output_exchanges[node].send(message_protocol.internal.serialize([userId]))
 
         self.amount_by_user[userId] = {}
 
