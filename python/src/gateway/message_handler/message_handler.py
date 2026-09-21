@@ -8,7 +8,7 @@ class MessageHandler:
     
     def serialize_data_message(self, message):
         [fruit, amount] = message
-        return message_protocol.internal.serialize([fruit, amount, self.userId]) # TODO: podria hacerse de otra manera mas prolijo
+        return message_protocol.internal.serialize([fruit, amount, self.userId])
 
     def serialize_eof_message(self, message):
         return message_protocol.internal.serialize([self.userId])

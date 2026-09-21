@@ -44,8 +44,6 @@ class SumFilter:
         self.eof[userId] = 1
 
         node =  int(userId.replace("-", ""), 16) % AGGREGATION_AMOUNT    
-
-        logging.info(f"SE ENVIA {userId} a {node}")
         
         for final_fruit_item in self.amount_by_user[userId].values():
             self.data_output_exchanges[node].send(message_protocol.internal.serialize([final_fruit_item.fruit, final_fruit_item.amount, userId]))
@@ -61,13 +59,14 @@ class SumFilter:
         fields = message_protocol.internal.deserialize(message)
         if len(fields) == 3:
             self._process_data(*fields)
-        else:
+        elif len(fields) == 1:
             self._process_eof(*fields)
 
         ack()
 
     def handle_sigterm(self):
         self.input_queue.close()
+        self.sum_control.close()
         for queue in self.data_output_exchanges:
             queue.close()
 
