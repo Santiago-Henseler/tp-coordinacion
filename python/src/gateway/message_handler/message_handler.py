@@ -15,4 +15,8 @@ class MessageHandler:
 
     def deserialize_result_message(self, message):
         fields = message_protocol.internal.deserialize(message)
+
+        if fields.pop() != self.userId:
+            return None
+
         return fields

@@ -52,6 +52,8 @@ class AggregationFilter:
             fruit_chunk.reverse()
             fruit_top = list(map(lambda fruit_item: (fruit_item.fruit, fruit_item.amount), fruit_chunk))
 
+            fruit_top.append(userId)
+
             self.output_queue.send(message_protocol.internal.serialize(fruit_top))
             
             self.fruit_top[userId] = []

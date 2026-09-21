@@ -44,7 +44,7 @@ class SumFilter:
         self.eof[userId] = 1
 
         node =  int(userId.replace("-", ""), 16) % AGGREGATION_AMOUNT    
-        
+
         for final_fruit_item in self.amount_by_user[userId].values():
             self.data_output_exchanges[node].send(message_protocol.internal.serialize([final_fruit_item.fruit, final_fruit_item.amount, userId]))
         
@@ -52,14 +52,15 @@ class SumFilter:
 
         self.amount_by_user[userId] = {}
 
-        for i in range(SUM_AMOUNT-1):
+        for i in range(SUM_AMOUNT):
             self.sum_control.send(message_protocol.internal.serialize([userId]))
 
     def process_data_messsage(self, message, ack, nack):
         fields = message_protocol.internal.deserialize(message)
         if len(fields) == 3:
             self._process_data(*fields)
-        elif len(fields) == 1:
+        else:
+            logging.info(f"Me llego {fields}")
             self._process_eof(*fields)
 
         ack()
