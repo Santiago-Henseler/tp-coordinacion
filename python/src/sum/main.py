@@ -55,7 +55,7 @@ class SumFilter:
             self.sum_control.send(message_protocol.internal.serialize([userId]))
 
     def process_data_messsage(self, message, ack, nack):
-        fields = message_protocol.internal.deserialize(message)
+       
         if len(fields) == 3:
             self._process_data(*fields)
         else:
