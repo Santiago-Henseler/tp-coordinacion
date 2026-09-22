@@ -42,7 +42,7 @@ class SumFilter:
         
         self.eof[userId] = 1
 
-        node =  int(userId.replace("-", ""), 16) % AGGREGATION_AMOUNT    
+        node = int(userId.replace("-", ""), 16) % AGGREGATION_AMOUNT    
 
         for final_fruit_item in self.amount_by_user[userId].values():
             self.data_output_exchanges[node].send(message_protocol.internal.serialize([final_fruit_item.fruit, final_fruit_item.amount, userId]))
