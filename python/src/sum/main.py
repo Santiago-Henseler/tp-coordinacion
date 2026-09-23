@@ -34,7 +34,7 @@ class SumFilter:
 
     def _process_eof(self, userId):
         for final_fruit_item in self.amount_by_user[userId].values():   
-            node = int.from_bytes(final_fruit_item.fruit.encode("utf-8"), byteorder='big', signed=False) % AGGREGATION_AMOUNT
+            node = int.from_bytes(final_fruit_item.fruit.encode("ASCII"), byteorder='big', signed=False) % AGGREGATION_AMOUNT
             self.data_output_exchanges[node].send(message_protocol.internal.serialize([final_fruit_item.fruit, final_fruit_item.amount, userId]))
             
         for i in range(AGGREGATION_AMOUNT):
