@@ -55,15 +55,20 @@ class AggregationFilter:
             self.output_queue.send(message_protocol.internal.serialize(fruit_top))
             
             del self.fruit_top[userId]
+            del self.eof[userId]
 
     def process_messsage(self, message, ack, nack):
-        logging.info("Process message")
-        fields = message_protocol.internal.deserialize(message)
-        if len(fields) == 3:
-            self._process_data(*fields)
-        else:
-            self._process_eof(*fields)
-        ack()
+        try:
+            logging.info("Process message")
+            fields = message_protocol.internal.deserialize(message)
+            if len(fields) == 3:
+                self._process_data(*fields)
+            else:
+                self._process_eof(*fields)
+            ack()
+        except Exception as e:
+            logging.error(f"{e}")
+            
 
     def handle_sigterm(self):
         self.input_exchange.close()
