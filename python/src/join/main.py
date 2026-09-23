@@ -2,6 +2,7 @@ import os
 import logging
 import signal
 import sys
+import bisect
 
 from common import middleware, message_protocol, fruit_item
 
@@ -21,13 +22,35 @@ class JoinFilter:
         self.input_queue = middleware.MessageMiddlewareQueueRabbitMQ(MOM_HOST, INPUT_QUEUE)
         self.output_queue = middleware.MessageMiddlewareQueueRabbitMQ(MOM_HOST, OUTPUT_QUEUE)
         self.top = {}
+        self.eof = {}
 
     def process_messsage(self, message, ack, nack):
         logging.info("Received top")
         fruit_top = message_protocol.internal.deserialize(message)
 
-        self.output_queue.send(message_protocol.internal.serialize(fruit_top))
-        
+        userId = fruit_top.pop()
+
+        if userId not in self.top:
+            self.top[userId] = []
+            self.eof[userId] = 1
+
+        for f in fruit_top:
+            fruit = fruit_item.FruitItem(f[0], f[1])
+            bisect.insort(self.top[userId], fruit)
+
+        if self.eof[userId] == AGGREGATION_AMOUNT:
+            fruit_chunk = list(self.top[userId][-TOP_SIZE:])
+            fruit_chunk.reverse()
+            top = list(map(lambda fruit_item: (fruit_item.fruit, fruit_item.amount), fruit_chunk))
+
+            top.append(userId)
+
+            self.output_queue.send(message_protocol.internal.serialize(top))
+            
+            del self.top[userId]
+        else:
+            self.eof[userId] += 1
+
         ack()
 
     def handle_sigterm(self):

@@ -15,7 +15,6 @@ AGGREGATION_AMOUNT = int(os.environ["AGGREGATION_AMOUNT"])
 AGGREGATION_PREFIX = os.environ["AGGREGATION_PREFIX"]
 TOP_SIZE = int(os.environ["TOP_SIZE"])
 
-
 class AggregationFilter:
 
     def __init__(self):
@@ -51,12 +50,11 @@ class AggregationFilter:
             fruit_chunk = list(self.fruit_top[userId][-TOP_SIZE:])
             fruit_chunk.reverse()
             fruit_top = list(map(lambda fruit_item: (fruit_item.fruit, fruit_item.amount), fruit_chunk))
-
             fruit_top.append(userId)
 
             self.output_queue.send(message_protocol.internal.serialize(fruit_top))
             
-            self.fruit_top[userId] = []
+            del self.fruit_top[userId]
 
     def process_messsage(self, message, ack, nack):
         logging.info("Process message")
