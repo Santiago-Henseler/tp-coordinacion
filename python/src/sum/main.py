@@ -18,7 +18,6 @@ class SumFilter:
         self.input_queue = middleware.MessageMiddlewareQueueRabbitMQ(MOM_HOST, INPUT_QUEUE)
         self.amount_by_user = {}        
         self.sum_control = middleware.MessageMiddlewareQueueRabbitMQ(MOM_HOST, INPUT_QUEUE)
-        self.eof = {}
 
         self.data_output_exchanges = []
         for i in range(AGGREGATION_AMOUNT):
@@ -34,17 +33,8 @@ class SumFilter:
           
 
     def _process_eof(self, userId):
-        if userId in self.eof:
-            if self.eof[userId] != SUM_AMOUNT-1:
-                self.sum_control.send(message_protocol.internal.serialize([userId]))
-                self.eof[userId] += 1
-            return
-        
-        self.eof[userId] = 1
-
         for final_fruit_item in self.amount_by_user[userId].values():   
             node = int.from_bytes(final_fruit_item.fruit.encode("utf-8"), byteorder='big', signed=False) % AGGREGATION_AMOUNT
-            logging.info(f"ENVIO {final_fruit_item.fruit} a {node}")
             self.data_output_exchanges[node].send(message_protocol.internal.serialize([final_fruit_item.fruit, final_fruit_item.amount, userId]))
             
         for i in range(AGGREGATION_AMOUNT):
@@ -52,17 +42,25 @@ class SumFilter:
 
         del self.amount_by_user[userId]
 
-        for i in range(SUM_AMOUNT):
+        for i in range(SUM_AMOUNT-1):
             self.sum_control.send(message_protocol.internal.serialize([userId]))
 
     def process_data_messsage(self, message, ack, nack):
-        fields = message_protocol.internal.deserialize(message)
-        if len(fields) == 3:
-            self._process_data(*fields)
-        else:
-            self._process_eof(*fields)
+        try:
+            fields = message_protocol.internal.deserialize(message)
+            if len(fields) == 3:
+                self._process_data(*fields)
+                ack()
+            else:
+                if fields[0] not in self.amount_by_user:
+                    nack()
+                else:
+                    self._process_eof(*fields)
+                    ack()
+        except Exception as e:
+            logging.ERROR(f"{e}")
+            nack()
 
-        ack()
 
     def handle_sigterm(self):
         self.input_queue.close()

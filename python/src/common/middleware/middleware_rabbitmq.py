@@ -12,7 +12,7 @@ class MessageMiddlewareQueueRabbitMQ(MessageMiddlewareQueue):
     def start_consuming(self, on_message_callback):
         try:
             def callback(ch, method, _, body):
-                on_message_callback(body, lambda: ch.basic_ack(delivery_tag=method.delivery_tag), lambda: ch.basic_nack(delivery_tag=method.delivery_tag))
+                on_message_callback(body, lambda: ch.basic_ack(delivery_tag=method.delivery_tag), lambda: ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True))
 
             self.channel.basic_consume(queue=self.queue_name, on_message_callback=callback, auto_ack=False)
             self.channel.start_consuming()
@@ -67,7 +67,7 @@ class MessageMiddlewareExchangeRabbitMQ(MessageMiddlewareExchange):
                 self.channel.queue_bind(exchange=self.exchange_name, routing_key=routing_key, queue=queue_name)
             
             def callback(ch, method, _, body):
-                on_message_callback(body, lambda: ch.basic_ack(delivery_tag=method.delivery_tag), lambda: ch.basic_nack(delivery_tag=method.delivery_tag))
+                on_message_callback(body, lambda: ch.basic_ack(delivery_tag=method.delivery_tag), lambda: ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True))
            
             self.channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=False)
             self.channel.start_consuming()
